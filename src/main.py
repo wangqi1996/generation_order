@@ -327,10 +327,10 @@ def train(FLAGS):
 
     GlobalNames.USE_GPU = FLAGS.use_gpu
 
-    if GlobalNames.USE_GPU:
+    if not GlobalNames.USE_GPU:
         CURRENT_DEVICE = "cpu"
     else:
-        CURRENT_DEVICE = "cuda:0"
+        CURRENT_DEVICE = "cuda"
 
     config_path = os.path.abspath(FLAGS.config_path)
     with open(config_path.strip()) as f:
@@ -504,8 +504,7 @@ def train(FLAGS):
 
     cum_samples = 0
     cum_words = 0
-    valid_loss = best_valid_loss = float('inf') # Max Float
-    saving_files = []
+    valid_loss = best_valid_loss = float('inf')  # Max Float
 
     # Timer for computing speed
     timer_for_speed = Timer()
@@ -523,7 +522,7 @@ def train(FLAGS):
                                      total=len(training_iterator),
                                      unit="sents"
                                      )
-        for batch in training_iter:
+        for batch in training_iter:  # batch_size
 
             uidx += 1
 
@@ -541,7 +540,7 @@ def train(FLAGS):
             train_loss = 0.
             optim.zero_grad()
             try:
-                # Prepare data
+                # Prepare data for update_cycle
                 for seqs_x_t, seqs_y_t in split_shard(seqs_x, seqs_y, split_size=training_configs['update_cycle']):
                     x, y = prepare_data(seqs_x_t, seqs_y_t, cuda=GlobalNames.USE_GPU)
 
@@ -740,7 +739,7 @@ def translate(FLAGS):
     INFO('Reloading model parameters...')
     timer.tic()
 
-    params = load_model_parameters(FLAGS.model_path, map_location="cpu")
+    params = load_model_parameters(FLAGS.model_path)
 
     nmt_model.load_state_dict(params)
 
@@ -771,6 +770,7 @@ def translate(FLAGS):
         x = prepare_data(seqs_x=seqs_x, cuda=GlobalNames.USE_GPU)
 
         with torch.no_grad():
+            # [batch_size, beam_size, vocal_size]
             word_ids = beam_search(nmt_model=nmt_model, beam_size=FLAGS.beam_size, max_steps=FLAGS.max_steps,
                                    src_seqs=x, alpha=FLAGS.alpha)
 

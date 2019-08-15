@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from .dl4mt import DL4MT
-from .transformer import Transformer
+from src.models.dl4mt import DL4MT
+from src.models.transformer import Transformer
+from src.models.transformer_i2 import Transformer_Index2
 
 __all__ = [
     "build_model",
@@ -22,6 +22,7 @@ __all__ = [
 MODEL_CLS = {
     "Transformer": Transformer,
     "DL4MT": DL4MT,
+    'Transformer_i2': Transformer_Index2
 }
 
 

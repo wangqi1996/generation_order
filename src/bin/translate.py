@@ -43,6 +43,12 @@ def run(**kwargs):
     for k, v in kwargs.items():
         setattr(args, k, v)
 
+    # /home/public_data/nmtdata/nist_zh-en_1.34m
+    args.model_path = r'/home/wangdq/njunlp_code/save/first_2/Transform.best.final'
+    args.config_path = r'/home/wangdq/njunlp_code/test/configs/configs_remove_1.yaml'
+    args.batch_size = 128
+    args.beam_size = 4
+    args.use_gpu = True
     translate(args)
 
 if __name__ == '__main__':
