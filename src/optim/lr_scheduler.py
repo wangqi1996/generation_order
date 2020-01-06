@@ -19,7 +19,7 @@ class LearningRateScheduler(object):
         self.optimizer = optimizer
         self.min_lr = min_lr
 
-        self._state = {}
+        self._state = {} # 相当于自己存储了一个词典
 
     def update_lr(self, *args, **kwargs):
         """Compute new learning rate given the old learning rate
@@ -27,6 +27,11 @@ class LearningRateScheduler(object):
         raise NotImplementedError
 
     def step(self, **kwargs):
+        """
+        取 update后的lr和min_lr的max
+        :param kwargs:
+        :return:
+        """
         new_lrs = []
 
         for old_lr in self.optimizer.get_lrate():
@@ -53,6 +58,10 @@ class LearningRateScheduler(object):
 
 
 class NoamScheduler(LearningRateScheduler):
+    """
+    好像是transfromer里面的lr调整策略
+    这一个在每一步都会更新
+    """
 
     def __init__(self, optimizer, d_model, warmup_steps, min_lr=-1.0):
         super(NoamScheduler, self).__init__(optimizer=optimizer, min_lr=min_lr)
@@ -62,7 +71,7 @@ class NoamScheduler(LearningRateScheduler):
 
     def update_lr(self, old_lr, global_step, **kwargs):
         opt_corr = 0.002
-
+        # self.optimizer.init_lr: 初始学习率
         origin_lr = self.optimizer.init_lr * self.d_model ** (-0.5) * opt_corr * 5000.0
 
         new_lr = origin_lr * min(global_step ** (-0.5),
@@ -72,6 +81,9 @@ class NoamScheduler(LearningRateScheduler):
 
 
 class ReduceOnPlateauScheduler(LearningRateScheduler):
+    """
+
+    """
 
     def __init__(self, optimizer, patience, min_lr=-1.0, scale=0.5, mode="min"):
 
@@ -96,7 +108,13 @@ class ReduceOnPlateauScheduler(LearningRateScheduler):
         self._state["bad_count"] = 0
 
     def update_lr(self, old_lr, metric):
-
+        """
+        通过loss的valid是否减小，来看一下当前的学习率是是否合适，如果不合适，线性减小学习率
+        这个是在计算dev loss的时候才会更新
+        :param old_lr:
+        :param metric: 这个传入的是best_valid_loss,
+        :return:
+        """
         if self.mode == "max":
             if metric > self._state["best"]:
                 self._state["bad_count"] = 0

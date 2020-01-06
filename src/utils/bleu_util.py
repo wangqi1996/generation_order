@@ -3,9 +3,7 @@
 """
 手动计算BLEU得分
 """
-
-from src.main import EOS
-from src.main import PAD
+from src.data.vocabulary import PAD, EOS
 
 
 def count_gram(candidate_list, reference_list, clipped_count, count, index_list=None, max_n=4):

@@ -34,18 +34,17 @@ def beam_search(nmt_model, beam_size, max_steps, src_seqs, alpha=-1.0):
         nmt_model (NMTModel):
         beam_size (int):
         max_steps (int):
-        src_seqs (torch.Tensor):
+        src_seqs (torch.Tensor): [batch_size, seq_len]
 
     Returns:
-
     """
-
     batch_size = src_seqs.size(0)
-
+    # enc_outputs:  ['ctx']: [batch_size, seq_len, hid_dim]
     enc_outputs = nmt_model.encode(src_seqs)
     init_dec_states = nmt_model.init_decoder(enc_outputs, expand_size=beam_size)
 
     # Prepare for beam searching
+    # beam_mask=1代表没有预测到EOS, =0代表预测到EOS
     beam_mask = src_seqs.new(batch_size, beam_size).fill_(1).float()
     final_lengths = src_seqs.new(batch_size, beam_size).zero_().float()
     beam_scores = src_seqs.new(batch_size, beam_size).zero_().float()
@@ -55,9 +54,10 @@ def beam_search(nmt_model, beam_size, max_steps, src_seqs, alpha=-1.0):
 
     for t in range(max_steps):
 
+        # next_score: [batch*beam, vocab_size]
         next_scores, dec_states = nmt_model.decode(final_word_indices.view(batch_size * beam_size, -1), dec_states)
-
         next_scores = - next_scores  # convert to negative log_probs
+        # next_scores: [batch, beam, vocab_size]
         next_scores = next_scores.view(batch_size, beam_size, -1)
         next_scores = mask_scores(scores=next_scores, beam_mask=beam_mask)
 
@@ -66,7 +66,7 @@ def beam_search(nmt_model, beam_size, max_steps, src_seqs, alpha=-1.0):
         vocab_size = beam_scores.size(-1)
 
         if t == 0 and beam_size > 1:
-            # Force to select first beam at step 0
+            # Force to select first beam at step 0, 因为beam_size内的结果都是一样的
             beam_scores[:, 1:, :] = float('inf')
 
         # Length penalty
@@ -78,15 +78,20 @@ def beam_search(nmt_model, beam_size, max_steps, src_seqs, alpha=-1.0):
         normed_scores = normed_scores.view(batch_size, -1)
 
         # Get topK with beams
-        # indices: [batch_size, ]
+        # indices: [batch_size, ], 表示下标
         _, indices = torch.topk(normed_scores, k=beam_size, dim=-1, largest=False, sorted=False)
         next_beam_ids = torch.div(indices, vocab_size)  # [batch_size, ]
         next_word_ids = indices % vocab_size  # [batch_size, ]
 
         # Re-arrange by new beam indices
         beam_scores = beam_scores.view(batch_size, -1)
+        # indices和beam_scores的大小相同，
+        # beam_scores[i][j] = beam_scores[i][indices[i][j]] dim=1
+        # 相当于给topk排序
+        # [batch_size, beam_size]
         beam_scores = torch.gather(beam_scores, 1, indices)
 
+        # 给beam_mask按照beam_id重新排序
         beam_mask = tensor_gather_helper(gather_indices=next_beam_ids,
                                          gather_from=beam_mask,
                                          batch_size=batch_size,
@@ -109,6 +114,9 @@ def beam_search(nmt_model, beam_size, max_steps, src_seqs, alpha=-1.0):
 
         # If next_word_ids is EOS, beam_mask_ should be 0.0
         beam_mask_ = 1.0 - next_word_ids.eq(EOS).float()
+
+        # beam_mask=1代表没有预测到EOS, =0代表预测到EOS
+        # beam_mask_=1代表没有预测到EOS， =0代表预测到EOS
         next_word_ids.masked_fill_((beam_mask_ + beam_mask).eq(0.0),
                                    PAD)  # If last step a EOS is already generated, we replace the last token as PAD
         beam_mask = beam_mask * beam_mask_

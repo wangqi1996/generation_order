@@ -49,7 +49,7 @@ class Optimizer(object):
 
         self.name = name
         self.model = model
-        self.init_lr = lr
+        self.init_lr = lr # 初始学习率
         self.weight_decay = weight_decay
         self.gclip = grad_clip
 
@@ -93,7 +93,7 @@ class Optimizer(object):
         self.optim = self.methods[self.name](self.param_groups,
                                              **self.optim_args)
 
-        # Assign shortcuts
+        # Assign shortcuts（快捷方式） 函数的赋值把
         self.zero_grad = self.optim.zero_grad
 
         # Skip useless if evaluation logic if gradient_clip not requested
@@ -106,6 +106,7 @@ class Optimizer(object):
     def step(self, closure=None):
         """Gradient clipping aware step()."""
         if self.gclip is not None and self.gclip > 0:
+            # 梯度裁剪把？
             clip_grad_norm_(self.params, self.gclip)
         self.optim.step(closure)
 

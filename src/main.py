@@ -452,6 +452,9 @@ def train(FLAGS):
     load_pretrained_model(nmt_model, FLAGS.pretrain_path, exclude_prefix=None, device=CURRENT_DEVICE)
 
     # 4. Build optimizer
+    """
+    优化器决定如何根据梯度的结果更新参数
+    """
     INFO('Building Optimizer...')
     optim = Optimizer(name=optimizer_configs['optimizer'],
                       model=nmt_model,
@@ -460,6 +463,9 @@ def train(FLAGS):
                       optim_args=optimizer_configs['optimizer_params']
                       )
     # 5. Build scheduler for optimizer if needed
+    """
+    学习率衰减： Learning rate schedules seek to adjust the learning rate during training by reducing the learning rate according to a pre-defined schedule
+    """
     if optimizer_configs['schedule_method'] is not None:
 
         if optimizer_configs['schedule_method'] == "loss":
@@ -678,6 +684,7 @@ def train(FLAGS):
                     if bad_count >= training_configs['early_stop_patience'] and eidx > 0:
                         is_early_stop = True
                         WARN("Early Stop!")
+                        exit(0)
 
                 summary_writer.add_scalar("bad_count", bad_count, uidx)
 

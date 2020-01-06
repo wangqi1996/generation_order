@@ -42,7 +42,7 @@ def get_attn_causal_mask(seq):
     '''
     assert seq.dim() == 3
     attn_shape = (seq.size(0), seq.size(1), seq.size(1))
-    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
+    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')  # 上三角
     subsequent_mask = torch.from_numpy(subsequent_mask)
     if seq.is_cuda:
         subsequent_mask = subsequent_mask.cuda()
@@ -64,9 +64,12 @@ class EncoderBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, enc_input, slf_attn_mask=None):
+        # enc_input: [batch_size, src_seq_len, hidden_size]
+        # slf_attn_mask: [batch_size, src_seq_len, src_seq_len]
         input_norm = self.layer_norm(enc_input)
+        # context: [batch_size, ]
         context, _, _ = self.slf_attn(input_norm, input_norm, input_norm, slf_attn_mask)
-        out = self.dropout(context) + enc_input
+        out = self.dropout(context) + enc_input  # 残差连接
 
         return self.pos_ffn(out)
 
@@ -84,6 +87,8 @@ class Encoder(nn.Module):
                                      dropout=dropout,
                                      add_position_embedding=True
                                      )
+
+        # 包含多层encoder
         self.block_stack = nn.ModuleList(
             [EncoderBlock(d_model=d_model, d_inner_hid=d_inner_hid, n_head=n_head, dropout=dropout,
                           dim_per_head=dim_per_head)
@@ -92,14 +97,14 @@ class Encoder(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model)
 
     def forward(self, src_seq):
-        # Word embedding look up
+        # Word embedding look up # src_seq: [batch_size, src_seq_len]
         batch_size, src_len = src_seq.size()
-
+        # emb: [batch_size, src_seq_len, embedding_dim]
         emb = self.embeddings(src_seq)
 
         enc_mask = src_seq.detach().eq(PAD)
+        # 计算自注意力
         enc_slf_attn_mask = enc_mask.unsqueeze(1).expand(batch_size, src_len, src_len)
-
         out = emb
 
         for i in range(self.num_layers):
@@ -132,6 +137,16 @@ class DecoderBlock(nn.Module):
 
     def forward(self, dec_input, enc_output, slf_attn_mask=None, dec_enc_attn_mask=None,
                 enc_attn_cache=None, self_attn_cache=None):
+        """
+
+        :param dec_input: [batch_size, trg_seq_len, d_model]
+        :param enc_output: [batch_size, src_seq_len, d_model]
+        :param slf_attn_mask: [batch_size, src_seq_len, src_seq_len]
+        :param dec_enc_attn_mask: [batch_size, trg_seq_len, src_seq_len]
+        :param enc_attn_cache: None
+        :param self_attn_cache: None
+        :return:
+        """
         # Args Checks
         input_batch, input_len, _ = dec_input.size()
 
@@ -139,7 +154,10 @@ class DecoderBlock(nn.Module):
 
         input_norm = self.layer_norm_1(dec_input)
         all_input = input_norm
-
+        """
+        query: [batch_size, trg_seq_len, d_model]
+        self_attn_cache: [key_up, value_up] 2个[batch_size, num_head, key_len/value_len, dim_head]
+        """
         query, _, self_attn_cache = self.slf_attn(all_input, all_input, input_norm,
                                                   mask=slf_attn_mask, self_attn_cache=self_attn_cache)
 
@@ -148,7 +166,7 @@ class DecoderBlock(nn.Module):
         query_norm = self.layer_norm_2(query)
         mid, attn, enc_attn_cache = self.ctx_attn(enc_output, enc_output, query_norm,
                                                   mask=dec_enc_attn_mask, enc_attn_cache=enc_attn_cache)
-
+        # 残差连接
         output = self.pos_ffn(self.dropout(mid) + query)
 
         return output, attn, self_attn_cache, enc_attn_cache
@@ -187,7 +205,14 @@ class Decoder(nn.Module):
             return self._dim_per_head
 
     def forward(self, tgt_seq, enc_output, enc_mask, enc_attn_caches=None, self_attn_caches=None):
-
+        """
+        :param tgt_seq: [batch_size, tgt_seq_len]
+        :param enc_output: [batch_size, src_seq_len, d_model]
+        :param enc_mask: [batch_size, src_seq_len]
+        :param enc_attn_caches:
+        :param self_attn_caches:
+        :return:
+        """
         batch_size, tgt_len = tgt_seq.size()
 
         query_len = tgt_len
@@ -196,15 +221,15 @@ class Decoder(nn.Module):
         src_len = enc_output.size(1)
 
         # Run the forward pass of the TransformerDecoder.
-        emb = self.embeddings(tgt_seq)
+        emb = self.embeddings(tgt_seq)  # [batch_size, tgt_seq_len, embedding_dim]
 
         if self_attn_caches is not None:
-            emb = emb[:, -1:].contiguous()
+            emb = emb[:, -1:].contiguous() # 推理阶段会进入，相当于只取了最后一个词呀
             query_len = 1
 
         # Decode mask
         dec_slf_attn_pad_mask = tgt_seq.detach().eq(PAD).unsqueeze(1).expand(batch_size, query_len, key_len)
-        dec_slf_attn_sub_mask = get_attn_causal_mask(emb)
+        dec_slf_attn_sub_mask = get_attn_causal_mask(emb)  # 上三角形，不能后见后面的信息
 
         dec_slf_attn_mask = torch.gt(dec_slf_attn_pad_mask + dec_slf_attn_sub_mask, 0)
         dec_enc_attn_mask = enc_mask.unsqueeze(1).expand(batch_size, query_len, src_len)
@@ -311,7 +336,6 @@ class Transformer(NMTModel):
 
         enc_output, enc_mask = self.encoder(src_seq)
         dec_output, _, _ = self.decoder(tgt_seq, enc_output, enc_mask)
-
         return self.generator(dec_output, log_probs=log_probs)
 
     def encode(self, src_seq):
@@ -343,7 +367,12 @@ class Transformer(NMTModel):
         ctx_mask = dec_states['ctx_mask']
         enc_attn_caches = dec_states['enc_attn_caches']
         slf_attn_caches = dec_states['slf_attn_caches']
-
+        # 这里是怎么控制只生成一步的？
+        """
+        第一轮：trg_seq=[BOS] dec_output: [batch_size, 1, d_model]
+        第二轮：trg_seq = [BOS, 上一步预测的词] dec_output: [batch_size, 1, d_model]
+        第三轮：trg_seq = [BOS, predict_1, predict_2] dec_output: [batch_size, 1, d_model]  
+        """
         dec_output, slf_attn_caches, enc_attn_caches = self.decoder(tgt_seq=tgt_seq, enc_output=ctx, enc_mask=ctx_mask,
                                                                     enc_attn_caches=enc_attn_caches,
                                                                     self_attn_caches=slf_attn_caches)

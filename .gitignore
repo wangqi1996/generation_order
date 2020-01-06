@@ -110,7 +110,7 @@ clean.sh
 test.sh
 TODO.md
 .idea/
-configs/test_config.yaml
+.travis/
 
 
 

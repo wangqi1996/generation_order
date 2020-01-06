@@ -7,6 +7,7 @@ class Vocabulary(object):
     EOS = 1
     BOS = 2
     UNK = 3
+    TAG = 4
 
     def __init__(self, type, dict_path, max_n_words=-1, **kwargs):
 
@@ -31,7 +32,8 @@ class Vocabulary(object):
             "<PAD>": (self.PAD, 0),
             "<UNK>": (self.UNK, 0),
             "<EOS>": (self.EOS, 0),
-            "<BOS>": (self.BOS, 0)
+            "<BOS>": (self.BOS, 0),
+            "<TAG>": (self.TAG, 0)
         }
 
     def _load_vocab(self, path):
@@ -86,7 +88,10 @@ class Vocabulary(object):
 
         return self.tokenizer.detokenize(tokens)
 
+
 PAD = Vocabulary.PAD
 EOS = Vocabulary.EOS
 BOS = Vocabulary.BOS
 UNK = Vocabulary.UNK
+TAG = Vocabulary.TAG
+

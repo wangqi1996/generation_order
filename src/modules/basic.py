@@ -3,8 +3,12 @@ import torch.nn as nn
 from src.utils import init
 
 class Bottle(nn.Module):
-    ''' Perform the reshape routine before and after an operation '''
-
+    ''' Perform the reshape routine before and after an operation '''\
+    """
+    一个类father继承Bottle，然后就会在执行father的时候先调用Bottle的forward方法，来改变维度，
+    后Bottle主动调用father的forward方法， 然后在执行father的forward的后续方法把维度修改回去
+    """
+    # input: [batch_size, q_len, m_len]
     def forward(self, input):
         if len(input.size()) <= 2:
             return super(Bottle, self).forward(input)
@@ -42,4 +46,5 @@ class BottleLinear(Bottle, Linear):
 
 class BottleSoftmax(Bottle, nn.Softmax):
     ''' Perform the reshape routine before and after a softmax operation'''
+    # 只会调用Bottle的forward方法
     pass

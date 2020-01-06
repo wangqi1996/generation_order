@@ -11,15 +11,11 @@ from src.metric.bleu_scorer import SacreBLEUScorer
 from src.decoding.beam_search import beam_search
 from src.data.data_iterator import DataIterator
 from src.data.dataset import TextLineDataset, ZipDataset
-from src.data.vocabulary import Vocabulary
+from src.data.vocabulary import Vocabulary, BOS, EOS, PAD
 from src.models import build_model
 from src.utils.bleu_util import count_gram
 from src.utils.common_utils import *
 from src.utils.logging import *
-
-BOS = Vocabulary.BOS
-EOS = Vocabulary.EOS
-PAD = Vocabulary.PAD
 
 
 def set_seed(seed):
@@ -174,7 +170,7 @@ def accuracy_translate(FLAGS):
 
     valid_iterator = DataIterator(dataset=valid_bitext_dataset,
                                   batch_size=FLAGS.batch_size,
-                                  use_bucket=True, buffer_size=100000, numbering=True)
+                                  use_bucket=True, mbuffer_size=100000, numbering=True)
 
     bleu_scorer = SacreBLEUScorer(reference_path=reference_path,
                                   num_refs=num_refs,

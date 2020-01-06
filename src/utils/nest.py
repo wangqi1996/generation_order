@@ -77,6 +77,12 @@ def assert_same_structure(nest1, nest2):
     _recursive_assert_same_structure(nest1, nest2)
 
 def map_structure(func, *structure):
+    """
+    func: lambda t: torch.index_select(t, 1, sidx), h_0
+    :param func:
+    :param structure: h_0:
+    :return:
+    """
 
     if not callable(func):
         raise TypeError("func must be callable!")
